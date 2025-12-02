@@ -94,14 +94,47 @@ int main(int argc, char *argv[]) {
                 scanf("%d", &sub_choice);
                 
                 if (sub_choice == 1) {
-                    // TODO: B파트가 구현할 archive_files(file_list, "archive.tar"); 호출
-                    printf("\n[System] 아카이빙 기능을 실행합니다... (B파트 구현 예정)\n");
+                    char archive_name[MAX_NAME];
+                    printf("생성할 압축 파일명 입력 (예: backup.tar) >> ");
+                    scanf("%s", archive_name);
+                    
+                    printf("\n[System] 아카이빙 기능을 실행합니다...\n");
+                    archive_files(file_list, archive_name);
                 } else if (sub_choice == 2) {
-                    // TODO: B파트가 구현할 move_file() 호출 반복문
-                    printf("\n[System] 파일 분류 기능을 실행합니다... (B파트 구현 예정)\n");
+                    char dest_folder[MAX_PATH];
+                    printf("파일들을 이동할 목적지 폴더 입력 >> ");
+                    scanf("%s", dest_folder);
+
+                    //목적지 폴더가 없으면 생성 (mkdir -p)
+                    char cmd[MAX_PATH + 10];
+                    sprintf(cmd, "mkdir -p %s", dest_folder);
+                    system(cmd);
+
+                    printf("\n[System] 파일 분류 기능을 실행합니다...\n");
+                    FileInfo *curr = file_list;
+                    while (curr != NULL) {
+                        move_file(curr, dest_folder);
+                        curr = curr->next;
+                    }
                 } else if (sub_choice == 3) {
-                     // TODO: B파트가 구현할 check_duplicate() 호출
-                    printf("\n[System] 중복 파일 검사를 시작합니다... (B파트 구현 예정)\n");
+                    printf("\n[System] 중복 파일 검사를 시작합니다...\n");
+                    
+                    int dup_count = 0;
+                    FileInfo *p1 = file_list;
+                    
+                    while(p1 != NULL) {
+                        FileInfo *p2 = p1->next;
+                        while(p2 != NULL){
+                            if(check_duplicate(p1, p2)){
+                                printf("⚠️[중복 발견]:\n   원본: %s\n   중복: %s\n", p1->name, p2->name);
+                                dup_count++;
+                            }
+                            p2 = p2->next;
+                        }
+                        p1 = p1->next;
+                    }
+                    if (dup_count == 0) printf(">> 중복된 파일이 없습니다.\n");
+                    else printf(">> 총 %d개의 중복 쌍을 발견했습니다.\n", dup_count);
                 }
                 break;
 
