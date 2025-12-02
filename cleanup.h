@@ -10,6 +10,11 @@
 #include <unistd.h>
 #include <pthread.h> // 스레드 사용 시 필요
 
+#define MAX_PATH 1024        // 파일 경로 최대 길이
+#define MAX_NAME 256         // 파일 이름 최대 길이
+#define FILE_BUFFER 4096     // 파일 읽기/쓰기용 버퍼 크기
+#define CMD_BUFFER 2048      // 시스템 명령어용 버퍼 크기
+
 // 1. [공통] 파일 정보를 담을 구조체 (이걸 주고받습니다)
 typedef struct FileInfo {
     char path[1024];      // 파일의 절대 경로 (예: /home/user/down/a.txt)
