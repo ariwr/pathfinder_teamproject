@@ -33,15 +33,24 @@ void print_statistics(FileInfo *head) {
 int main(int argc, char *argv[]) {
     int choice;
     char target_dir[1024] = "."; // 기본값은 현재 폴더
+    char original_cwd[1024];     // 프로그램 시작 위치 저장용
     FileInfo *file_list = NULL;
+
+    // 시작 위치 기억 
+    if (getcwd(original_cwd, sizeof(original_cwd)) == NULL) {
+        perror("getcwd error");
+        return 1;
+    }
 
     print_logo();
 
     while (1) {
-        printf("\n[ 메인 메뉴 ]\n");
-        printf("1. 🔍 디렉토리 스캔 설정 및 실행\n");
-        printf("2. 🧹 파일 정리 시작 (Action)\n");
-        printf("3. ❌ 프로그램 종료\n");
+        printf("\n============================================\n");
+        printf("1. 🔍 디렉토리 스캔 (Scan)\n");
+        printf("2. 🚀 원클릭 전체 정리 (One-Click Cleanup) [⭐추천]\n");
+        printf("3. 🛠️ 고급/개별 기능 (Manual Tools)\n");
+        printf("0. ❌ 프로그램 종료\n");
+        printf("============================================\n");
         printf("선택 >> ");
         
         if (scanf("%d", &choice) != 1) {
@@ -51,20 +60,21 @@ int main(int argc, char *argv[]) {
         }
 
         switch (choice) {
-            case 1: // 스캔 실행
-                printf("\n스캔할 디렉토리 경로를 입력하세요 (현재: %s): ", target_dir);
-                printf("\n(입력 없이 엔터를 누르면 현재 폴더 스캔 불가능, 경로를 입력해주세요) >> ");
-                scanf("%s", target_dir);
-
-                // 기존 리스트가 있다면 메모리 해제 후 다시 스캔
-                if (file_list != NULL) free_file_list(file_list);
+            case 1: // 스캔 기능
+                if (file_list != NULL) 
+                    free_file_list(file_list);
                 
-                printf("\n>> '%s' 디렉토리를 스캔 중입니다...\n", target_dir);
+                if (pick_folder_with_gui(target_dir, sizeof(target_dir))) {
+                    printf(">> 선택된 경로: %s\n", target_dir);
+                } else {
+                    printf(">> ⚠️ 경로 선택 취소 또는 실패. 현재 폴더를 사용합니다.\n");
+                }
+
                 file_list = scan_directory(target_dir);
 
                 if (file_list != NULL) {
                     print_statistics(file_list);
-                    
+
                     // 스캔 직후 목록을 볼지 물어보기
                     char show_list;
                     printf("상세 파일 목록을 출력하시겠습니까? (y/n): ");
@@ -76,69 +86,81 @@ int main(int argc, char *argv[]) {
                     printf(">> ⚠️ 파일을 찾지 못했거나 경로가 잘못되었습니다.\n");
                 }
                 break;
-
-            case 2: // 정리 작업 (B파트 연결 구간)
+            case 2: // 원클릭 정리 기능
                 if (file_list == NULL) {
                     printf("\n>> ⚠️ 먼저 [1. 디렉토리 스캔]을 수행해주세요!\n");
                     break;
                 }
-                
-                printf("\n[ 🧹 정리 옵션 선택 ]\n");
-                printf("1. 오래된 파일 자동 아카이브 (Archive)\n");
-                printf("2. 키워드/종류별 분류 이동 (Move)\n");
-                printf("3. 중복 파일 찾기 (Duplicate)\n");
-                printf("0. 뒤로 가기\n");
-                printf("선택 >> ");
-                
-                int sub_choice;
-                scanf("%d", &sub_choice);
-                
-                if (sub_choice == 1) {
-                    char archive_name[MAX_NAME];
-                    printf("생성할 압축 파일명 입력 (예: backup.tar) >> ");
-                    scanf("%s", archive_name);
-                    
-                    printf("\n[System] 아카이빙 기능을 실행합니다...\n");
-                    archive_files(file_list, archive_name);
-                } else if (sub_choice == 2) {
-                    char dest_folder[MAX_PATH];
-                    printf("파일들을 이동할 목적지 폴더 입력 >> ");
-                    scanf("%s", dest_folder);
+                int days_auto;
+                char final_dest[MAX_PATH];
 
-                    //목적지 폴더가 없으면 생성 (mkdir -p)
-                    char cmd[MAX_PATH + 10];
-                    sprintf(cmd, "mkdir -p %s", dest_folder);
-                    system(cmd);
+                printf("\n[ 🚀 원클릭 전체 정리 설정 ]\n");
+                printf("1. 며칠 이상 된 파일을 아카이빙(압축) 할까요? (예: 30) >> ");
+                scanf("%d", &days_auto);
 
-                    printf("\n[System] 파일 분류 기능을 실행합니다...\n");
-                    FileInfo *curr = file_list;
-                    while (curr != NULL) {
-                        move_file(curr, dest_folder);
-                        curr = curr->next;
-                    }
-                } else if (sub_choice == 3) {
-                    printf("\n[System] 중복 파일 검사를 시작합니다...\n");
-                    
-                    int dup_count = 0;
-                    FileInfo *p1 = file_list;
-                    
-                    while(p1 != NULL) {
-                        FileInfo *p2 = p1->next;
-                        while(p2 != NULL){
-                            if(check_duplicate(p1, p2)){
-                                printf("⚠️[중복 발견]:\n   원본: %s\n   중복: %s\n", p1->name, p2->name);
-                                dup_count++;
-                            }
-                            p2 = p2->next;
-                        }
-                        p1 = p1->next;
-                    }
-                    if (dup_count == 0) printf(">> 중복된 파일이 없습니다.\n");
-                    else printf(">> 총 %d개의 중복 쌍을 발견했습니다.\n", dup_count);
+                printf("2. 나머지 파일들을 분류해서 담을 상위 폴더 이름 (예: Cleaned) >> ");
+                scanf("%s", final_dest);
+
+                printf("\n>> 📂 작업 위치를 '%s'로 이동합니다...\n", target_dir);
+                if (chdir(target_dir) != 0) {
+                    perror(">> ❌ 경로 이동 실패");
+                    break;
                 }
+
+                // 통합 함수 실행
+                run_full_cleanup(file_list, days_auto, final_dest);
+                
+                // 정리 후 리스트가 변경되므로 안전하게 해제
+                free_file_list(file_list);
+                file_list = NULL;
+                printf(">> 💡 파일 구조가 변경되었습니다. 최신 상태를 보려면 [1. 스캔]을 다시 해주세요.\n");
                 break;
 
-            case 3: // 종료
+            case 3: // 개별/수동 기능
+                if (file_list == NULL) {
+                    printf("\n>> ⚠️ 먼저 [1. 디렉토리 스캔]을 수행해주세요!\n");
+                    break;
+                }
+
+                printf("\n[ 🛠️ 고급/개별 기능 선택 ]\n");
+                printf("1. 📦 오래된 파일 아카이브 (Archive)\n");
+                printf("2. 📂 확장자별 분류 이동 (Move)\n");
+                printf("3. 📑 중복 파일 검사 및 삭제 (Duplicate)\n");
+                printf("0. 🔙 뒤로 가기\n");
+                printf("선택 >> ");
+
+                int sub_choice;
+                scanf("%d", &sub_choice);
+
+                if (sub_choice != 0) {
+                    if (chdir(target_dir) != 0) {
+                        perror(">> ❌ 경로 이동 실패");
+                        break;
+                    }
+                }
+
+                if (sub_choice == 1) {
+                    int days;
+                    printf("며칠 이상 사용하지 않은 파일을 정리할까요? (예: 30) >> ");
+                    scanf("%d", &days);
+                    printf("\n[System] %d일 이상 된 파일을 찾아 아카이빙합니다...\n", days);
+                    archive_files(file_list, days);
+                } else if (sub_choice == 2) {
+                    char dest_folder[MAX_PATH];
+                    printf("분류된 폴더들을 담을 상위 폴더 이름 입력 (예: Sorted) >> ");
+                    scanf("%s", dest_folder);
+                    classify_files_by_extension(file_list, dest_folder);
+                    printf(">> 💡 파일 경로가 변경되었습니다. 재스캔을 권장합니다.\n");
+
+                } else if (sub_choice == 3) {
+                    printf("\n[System] 중복 파일 검사를 시작합니다...\n");
+                    remove_copy_files(file_list);
+                }
+                // 작업 후 복귀
+                if (sub_choice != 0) chdir(original_cwd);
+                break;
+
+            case 0: // 종료
                 printf("\n시스템을 종료합니다. Good Bye!\n");
                 if (file_list != NULL) free_file_list(file_list);
                 return 0;
@@ -150,3 +172,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
