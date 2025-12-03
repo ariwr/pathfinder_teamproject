@@ -59,35 +59,18 @@ FileInfo* scan_directory(const char *dir_path) {
 
         // S_ISDIR 매크로: 파일 모드(st_mode)를 확인하여 디렉토리인지 판별 (표준 방법)
         if (S_ISDIR(st.st_mode)) {
-            // === 재귀 호출 핵심 로직 ===
-            // 폴더를 만나면 그 안으로 들어가서(scan_directory 호출) 리스트를 받아옴
-            FileInfo *sub_list = scan_directory(full_path);
-
-            // 받아온 리스트(sub_list)를 내 리스트(head)의 끝에 이어 붙임
-            if (sub_list != NULL) {
-                if (head == NULL) {
-                    head = sub_list;
-                    current = sub_list;
-                } else {
-                    current->next = sub_list;
-                }
-                // current 포인터를 끝까지 이동시켜 둠 (다음 연결을 위해)
-                while (current->next != NULL) {
-                    current = current->next;
-                }
-            }
+            // 폴더를 만나면 무시
+            continue;
         } 
-        // 일반 파일인 경우
-        else {
-            FileInfo *new_node = create_node(dir_path, dir->d_name);
+        // 일반 파일인 경우에 리스트 추가
+        FileInfo *new_node = create_node(dir_path, dir->d_name);
             
-            if (head == NULL) {
-                head = new_node;
-                current = new_node;
-            } else {
-                current->next = new_node;
-                current = new_node; // current를 항상 마지막 노드로 유지
-            }
+        if (head == NULL) {
+            head = new_node;
+            current = new_node;
+        } else {
+            current->next = new_node;
+            current = new_node; // current를 항상 마지막 노드로 유지
         }
     }
     
