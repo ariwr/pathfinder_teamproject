@@ -1,19 +1,24 @@
+/* utils.c : 로그, GUI, 폴더 생성 도구 */
+
 #define _DEFAULT_SOURCE 
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include "cleanup.h"
 
-// 1. 현재 시간을 문자열로 반환하는 내부 함수
+volatile int is_loading = 0;
+
+// 현재 시간 문자열 반환 함수
 void get_current_time_str(char *buffer, size_t size) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
     strftime(buffer, size, "%Y-%m-%d %H:%M:%S", t);
 }
 
-// 2. 로그 파일(cleanup.log)에 내용을 적는 함수
+// 로그 파일에 기록 함수
 void write_log(const char *format, ...) {
     FILE *fp = fopen("cleanup.log", "a");
     if (fp == NULL) {
@@ -36,8 +41,7 @@ void write_log(const char *format, ...) {
     fclose(fp);
 }
 
-// 3. [NEW] GUI로 폴더 선택 창을 띄우는 함수
-// 성공하면 1, 취소하거나 실패하면 0 반환
+// Zenity GUI로 폴더 선택 (윈도우 사용자 자동 감지)
 int pick_folder_with_gui(char *buffer, size_t size) {
     printf(">> 📂 윈도우 다운로드 폴더를 찾는 중...\n");
 
@@ -62,13 +66,13 @@ int pick_folder_with_gui(char *buffer, size_t size) {
         printf(">> ✅ 감지된 윈도우 사용자: %s\n", win_user);
     }
 
-    // 3. zenity 실행 (자동으로 찾은 이름 사용)
     char command[1024];
+    // Zenity 실행 명령어 (에러 메시지 숨김)
     snprintf(command, sizeof(command), 
              "zenity --file-selection --directory --title='다운로드 폴더 정리' --filename='/mnt/c/Users/%s/Downloads/' 2>/dev/null", 
              win_user);
 
-    printf(">> 📂 폴더 선택 창을 띄웁니다... (화면을 확인하세요)\n");
+    printf(">> 📂 폴더 선택 창을 띄웁니다...\n");
     FILE *fp = popen(command, "r");
     
     if (fp == NULL) {
@@ -86,6 +90,7 @@ int pick_folder_with_gui(char *buffer, size_t size) {
     return 0; 
 }
 
+// 재귀적 폴더 생성 (mkdir -p 기능)
 int mkdir_p(const char *path) {
     char temp[MAX_PATH];
     char *p = NULL;
@@ -106,6 +111,48 @@ int mkdir_p(const char *path) {
             *p = '/';
         }
     }
+    if (mkdir(temp, 0755) != 0) {
+        if (errno != EEXIST) return -1;
+    }
+    return 0;
+}
+
+// 로딩 애니메이션을 담당할 작업자 스레드
+void *loading_spinner(void *arg) {
+    // 회전하는 막대기 모양
+    const char spinner[] = {'|', '/', '-', '\\'};
+    int i = 0;
+    
+    // is_loading이 1인 동안 계속 돌아감
+    while (is_loading) {
+        printf("\r[ 작업 진행 중... %c ]   ", spinner[i % 4]);
+        fflush(stdout); // 화면에 즉시 표시
+        usleep(100000);
+        i++;
+    }
+    return NULL;
+}
+
+// 스레드 시작 함수
+pthread_t start_loading_thread() {
+    is_loading = 1;
+    pthread_t thread_id;
+    // 스레드 생성 (성공 시 0 반환)
+    if (pthread_create(&thread_id, NULL, loading_spinner, NULL) != 0) {
+        perror("스레드 생성 실패");
+        is_loading = 0;
+    }
+    return thread_id;
+}
+
+// 스레드 종료 함수
+void stop_loading_thread(pthread_t thread_id) {
+    if (is_loading) {
+        is_loading = 0; // 루프 종료 신호
+        pthread_join(thread_id, NULL); // 스레드가 끝날 때까지 대기
+        printf("\r%60s\r", " ");
+    }
+}
     if (mkdir(temp, 0755) != 0) {
         if (errno != EEXIST) return -1;
     }
