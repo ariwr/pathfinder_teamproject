@@ -274,7 +274,7 @@ void archive_files(FileInfo *head, int days){
     // 최종 파일명 결정
     snprintf(auto_name, sizeof(auto_name), "%s-%s_archive.tar", min_str, max_str);
 
-    printf(">> 📂 압축 파일명: [ %s ]\n", auto_name);
+    printf("\033[2K\r>> 📂 압축 파일명: [ %s ]\n", auto_name);
     write_log("아카이브 시작: %d일 이상 파일 %d개 -> %s", days, count, auto_name);
 
     // tar 압축 실행------------------------------------------------------
@@ -284,21 +284,21 @@ void archive_files(FileInfo *head, int days){
         perror("Fork 실패");
     } else if (pid == 0) { //자식 프로세스
         //tar 명령어 실행
-        execlp("tar", "tar", "-cvf", auto_name, temp_dir, NULL);
+        execlp("tar", "tar", "-cf", auto_name, "-C", temp_dir, ".", NULL);
         exit(1);
     } else {    //부모 프로세스
         //압축 끝날 때까지 대기
         int status;
         wait(&status);
         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            printf("\n✅ [성공] 아카이브 파일 생성 완료!\n");
+            printf("\033[2K\r✅ [성공] 아카이브 파일 생성 완료!\n");
             write_log("아카이브 성공: %s 생성 완료", auto_name);
             // 임시 폴더 삭제
             char cmd[CMD_BUFFER];
             snprintf(cmd, sizeof(cmd), "rm -rf %s", temp_dir);
             system(cmd);
         } else {
-            printf("❌ [오류] 압축 과정에서 문제가 발생했습니다.\n");
+            printf("\033[2K\r❌ [오류] 압축 과정에서 문제가 발생했습니다.\n");
             write_log("아카이브 실패: tar 명령어 오류");
         }
     }
