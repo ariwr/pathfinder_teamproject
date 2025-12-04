@@ -84,9 +84,11 @@ int main(int argc, char *argv[]) {
 
         switch (choice) {
             case 1: // 스캔 기능
-                if (file_list != NULL) 
+                if (file_list != NULL) {
                     free_file_list(file_list);
-                
+                    file_list = NULL;
+                    global_file_list = NULL;
+                }
                 if (pick_folder_with_gui(target_dir, sizeof(target_dir))) {
                     printf(">> 선택된 경로: %s\n", target_dir);
                 } else {
@@ -149,8 +151,11 @@ int main(int argc, char *argv[]) {
                 chdir(original_cwd);
                 
                 // 정리 후 리스트가 변경되므로 안전하게 해제
-                free_file_list(file_list);
-                file_list = NULL;
+                if (file_list != NULL) {
+                    free_file_list(file_list);
+                    file_list = NULL;
+                    global_file_list = NULL; 
+                }
                 printf(">> 💡 파일 구조가 변경되었습니다. 최신 상태를 보려면 [1. 스캔]을 다시 해주세요.\n");
                 break;
 
@@ -201,7 +206,11 @@ int main(int argc, char *argv[]) {
 
             case 0: // 종료
                 printf("\n시스템을 종료합니다. Good Bye!\n");
-                if (file_list != NULL) free_file_list(file_list);
+                if (file_list != NULL) {
+                    free_file_list(file_list);
+                    file_list = NULL;
+                    global_file_list = NULL;
+                }
                 return 0;
 
             default:
