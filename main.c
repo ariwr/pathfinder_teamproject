@@ -1,6 +1,26 @@
+/* main.c : 프로그램 진입점 및 메뉴 처리 */
+
 #include "cleanup.h"
 
-// 1. 멋진 로고 출력 함수
+FileInfo *global_file_list = NULL;
+
+// 시그널 핸들러 함수
+void handle_signal(int sig) {
+    if (sig == SIGINT) {
+        printf("\n\n>> ⚠️ 강제 종료 신호(Ctrl+C)가 감지되었습니다.\n");
+        printf(">> 메모리를 정리하고 시스템을 종료합니다...\n");
+        
+        if (global_file_list != NULL) {
+            free_file_list(global_file_list); // 메모리 해제
+            printf(">> 메모리 해제 완료.\n");
+        }
+        
+        printf("\n시스템을 종료합니다. Good Bye!\n");
+        exit(0);
+    }
+}
+
+// 멋진 로고 출력 함수
 void print_logo() {
     printf("\n");
     printf("==============================================================\n");
@@ -10,7 +30,7 @@ void print_logo() {
     printf("\n");
 }
 
-// 2. 파일 통계 계산 및 출력 함수 (A파트의 센스!)
+// 파일 통계 계산 및 출력 함수
 void print_statistics(FileInfo *head) {
     int count = 0;
     long total_size = 0;
@@ -29,14 +49,17 @@ void print_statistics(FileInfo *head) {
     printf("------------------------------------------\n");
 }
 
-// 3. 메인 메뉴
+// 메인 함수
 int main(int argc, char *argv[]) {
     int choice;
     char target_dir[1024] = "."; // 기본값은 현재 폴더
     char original_cwd[1024];     // 프로그램 시작 위치 저장용
     FileInfo *file_list = NULL;
+    pthread_t tid;
 
-    // 시작 위치 기억 
+    signal(SIGINT, handle_signal);
+
+    // 프로그램 시작 위치 저장
     if (getcwd(original_cwd, sizeof(original_cwd)) == NULL) {
         perror("getcwd error");
         return 1;
@@ -70,7 +93,16 @@ int main(int argc, char *argv[]) {
                     printf(">> ⚠️ 경로 선택 취소 또는 실패. 현재 폴더를 사용합니다.\n");
                 }
 
+                // 스레드 로딩바 표시
+                printf(">> 디렉토리 분석 중... ");
+                tid = start_loading_thread();
+
                 file_list = scan_directory(target_dir);
+
+                stop_loading_thread(tid);
+                printf("[완료]\n");
+
+                global_file_list = file_list;
 
                 if (file_list != NULL) {
                     print_statistics(file_list);
@@ -95,20 +127,26 @@ int main(int argc, char *argv[]) {
                 char final_dest[MAX_PATH];
 
                 printf("\n[ 🚀 원클릭 전체 정리 설정 ]\n");
-                printf("1. 며칠 이상 된 파일을 아카이빙(압축) 할까요? (예: 30) >> ");
+                printf("1. 며칠 이상 된 파일을 아카이빙(압축) 할까요? (예: 180) >> ");
                 scanf("%d", &days_auto);
 
                 printf("2. 나머지 파일들을 분류해서 담을 상위 폴더 이름 (예: Cleaned) >> ");
                 scanf("%s", final_dest);
 
                 printf("\n>> 📂 작업 위치를 '%s'로 이동합니다...\n", target_dir);
+                // 작업 디렉토리 변경 (결과물을 해당 폴더에 생성)
                 if (chdir(target_dir) != 0) {
                     perror(">> ❌ 경로 이동 실패");
                     break;
                 }
 
+                printf(">> 정리 작업을 수행 중입니다 (압축 및 이동)... ");
+
                 // 통합 함수 실행
                 run_full_cleanup(file_list, days_auto, final_dest);
+
+                // 작업 종료 후 원래 위치로 복귀
+                chdir(original_cwd);
                 
                 // 정리 후 리스트가 변경되므로 안전하게 해제
                 free_file_list(file_list);
@@ -116,7 +154,7 @@ int main(int argc, char *argv[]) {
                 printf(">> 💡 파일 구조가 변경되었습니다. 최신 상태를 보려면 [1. 스캔]을 다시 해주세요.\n");
                 break;
 
-            case 3: // 개별/수동 기능
+            case 3: // 개별 기능
                 if (file_list == NULL) {
                     printf("\n>> ⚠️ 먼저 [1. 디렉토리 스캔]을 수행해주세요!\n");
                     break;
@@ -141,19 +179,20 @@ int main(int argc, char *argv[]) {
 
                 if (sub_choice == 1) {
                     int days;
-                    printf("며칠 이상 사용하지 않은 파일을 정리할까요? (예: 30) >> ");
+                    printf("며칠 이상 된 파일을 아카이빙(압축) 할까요? (예: 30) >> ");
                     scanf("%d", &days);
-                    printf("\n[System] %d일 이상 된 파일을 찾아 아카이빙합니다...\n", days);
+                    printf("\n[System] %d일 이상 된 파일을 찾아 압축합니다...\n", days);
+
                     archive_files(file_list, days);
                 } else if (sub_choice == 2) {
                     char dest_folder[MAX_PATH];
-                    printf("분류된 폴더들을 담을 상위 폴더 이름 입력 (예: Sorted) >> ");
+                    printf("파일들을 분류해서 담을 상위 폴더 이름 (예: Cleaned) >> ");
                     scanf("%s", dest_folder);
                     classify_files_by_extension(file_list, dest_folder);
                     printf(">> 💡 파일 경로가 변경되었습니다. 재스캔을 권장합니다.\n");
 
                 } else if (sub_choice == 3) {
-                    printf("\n[System] 중복 파일 검사를 시작합니다...\n");
+                    printf("\n[System] 중복 파일 삭제를 시작합니다...\n");
                     remove_copy_files(file_list);
                 }
                 // 작업 후 복귀
@@ -172,4 +211,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
