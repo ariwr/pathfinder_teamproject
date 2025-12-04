@@ -1,7 +1,9 @@
-#define _DEFAULT_SOURCE // 리눅스 확장 기능 사용 시 필요 (혹시 모를 호환성 대비)
+/* scanner.c : 디렉토리 탐색 및 리스트 생성 */
+
+#define _DEFAULT_SOURCE
 #include "cleanup.h"
 
-// 1. 새로운 노드를 생성하는 도우미 함수
+// 새 파일 노드 생성 함수
 FileInfo* create_node(const char *dir_path, const char *name) {
     FileInfo *new_node = (FileInfo *)malloc(sizeof(FileInfo));
     if (!new_node) {
@@ -26,11 +28,11 @@ FileInfo* create_node(const char *dir_path, const char *name) {
     return new_node;
 }
 
-// 2. 디렉토리를 스캔하여 리스트로 반환하는 메인 함수
+// 디렉토리를 스캔하여 리스트로 반환하는 메인 함수
 FileInfo* scan_directory(const char *dir_path) {
     DIR *d;
     struct dirent *dir;
-    struct stat st; // [수정] 파일 정보를 담을 구조체 선언
+    struct stat st;
     FileInfo *head = NULL;
     FileInfo *current = NULL;
 
@@ -40,9 +42,6 @@ FileInfo* scan_directory(const char *dir_path) {
         return NULL;
     }
 
-    // (선택) 디버깅용: 현재 어디를 스캔 중인지 출력
-    // printf("[스캔 중] %s\n", dir_path);
-
     // 2. 디렉토리 내부를 하나씩 읽기 (Loop)
     while ((dir = readdir(d)) != NULL) {
         // ".", ".." 같은 숨김 폴더는 건너뛰기
@@ -51,15 +50,13 @@ FileInfo* scan_directory(const char *dir_path) {
         char full_path[1024];
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, dir->d_name);
 
-        // [문제 해결] DT_DIR 대신 stat()과 S_ISDIR() 사용
-        // stat()을 사용하여 파일의 속성을 정확하게 파악합니다.
+        // stat()을 사용하여 파일의 속성을 정확하게 파악
         if (stat(full_path, &st) == -1) {
             continue; // 파일 정보를 읽지 못하면 건너뜀
         }
 
         // S_ISDIR 매크로: 파일 모드(st_mode)를 확인하여 디렉토리인지 판별 (표준 방법)
-        if (S_ISDIR(st.st_mode)) {
-            // 폴더를 만나면 무시
+        if (S_ISDIR(st.st_mode)) { // 폴더는 스캔하지 않고 건너뜀 (내부 파일 보호)
             continue;
         } 
         // 일반 파일인 경우에 리스트 추가
@@ -78,7 +75,7 @@ FileInfo* scan_directory(const char *dir_path) {
     return head; // 리스트의 머리(head) 반환
 }
 
-// 3. 메모리 해제 함수
+// 메모리 해제 함수
 void free_file_list(FileInfo *head) {
     FileInfo *temp;
     while (head != NULL) {
@@ -88,7 +85,7 @@ void free_file_list(FileInfo *head) {
     }
 }
 
-// 4. 테스트용 출력 함수
+// (테스트용) 목록 출력
 void print_file_list(FileInfo *head) {
     FileInfo *current = head;
     int count = 0;
