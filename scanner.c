@@ -52,9 +52,25 @@ FileInfo* scan_directory(const char *dir_path) {
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, dir->d_name);
 
         // [문제 해결] DT_DIR 대신 stat()과 S_ISDIR() 사용
-        // stat()을 사용하여 파일의 속성을 정확하게 파악합니다.
-        if (stat(full_path, &st) == -1) {
-            continue; // 파일 정보를 읽지 못하면 건너뜀
+        // S_ISDIR 매크로: 폴더인지 확인
+        if (S_ISDIR(st.st_mode)) {
+            // === [핵심] 재귀 호출: 폴더 안으로 들어감 ===
+            FileInfo* sub_list = scan_directory(full_path);
+
+            // 받아온 리스트 연결 로직
+            if (sub_list != NULL) {
+                if (head == NULL) {
+                    head = sub_list;
+                    current = sub_list;
+                }
+                else {
+                    current->next = sub_list;
+                }
+                // 포인터를 맨 끝으로 이동
+                while (current->next != NULL) {
+                    current = current->next;
+                }
+            }
         }
 
         // S_ISDIR 매크로: 파일 모드(st_mode)를 확인하여 디렉토리인지 판별 (표준 방법)
