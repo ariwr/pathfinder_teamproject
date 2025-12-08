@@ -1,3 +1,5 @@
+/* cleanup.h : 구조체 및 함수 선언 */
+
 #ifndef CLEANUP_H
 #define CLEANUP_H
 
@@ -8,30 +10,48 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h> // 스레드 사용 시 필요
+#include <pthread.h>
+#include <signal.h>
+#include <ctype.h>
+#include <errno.h>
 
-// 1. [공통] 파일 정보를 담을 구조체 (이걸 주고받습니다)
+// 상수 정의
+#define MAX_PATH 1024        // 파일 경로 최대 길이
+#define MAX_NAME 256         // 파일 이름 최대 길이
+#define FILE_BUFFER 4096     // 파일 읽기/쓰기용 버퍼 크기
+#define CMD_BUFFER 2048      // 시스템 명령어용 버퍼 크기
+
+// 파일 정보를 담을 구조체 (연결 리스트)
 typedef struct FileInfo {
-    char path[1024];      // 파일의 절대 경로 (예: /home/user/down/a.txt)
-    char name[256];       // 파일 이름 (예: a.txt)
+    char path[1024];      // 절대 경로
+    char name[256];       // 파일 이름
     long size;            // 파일 크기 (Byte)
     time_t last_access;   // 마지막 접근 시간
-    struct FileInfo *next;// 다음 파일 (링크드 리스트)
+    struct FileInfo *next;// 다음 파일
 } FileInfo;
 
-// 2. [A파트 담당] 데이터 수집 함수들
-FileInfo* scan_directory(const char *dir_path); // 폴더 스캔
-void free_file_list(FileInfo *head);            // 메모리 해제
-void print_file_list(FileInfo *head);           // 목록 출력 (테스트용)
+// --- [Scanner] scanner.c ---
+FileInfo* scan_directory(const char *dir_path);
+void free_file_list(FileInfo *head);
+void print_file_list(FileInfo *head);
 
-// 3. [B파트 담당] 액션 함수들 (이걸 구현해 줘!)
-// 파일을 dest_folder로 이동시키는 함수
-void move_file(FileInfo *file, const char *dest_folder);
-
-// 리스트에 있는 파일들을 tar로 압축하고 원본 삭제하는 함수
-void archive_files(FileInfo *head, const char *archive_name);
-
-// 중복 파일인지 확인하는 함수 (중복이면 1, 아니면 0 리턴)
+// --- [Actions] actions.c ---
+void move_file(FileInfo *file, const char *dest_folder);   
 int check_duplicate(FileInfo *file1, FileInfo *file2);
+void remove_copy_files(FileInfo *head);
+void classify_files_by_extension(FileInfo *head, const char *base_dest_folder);
+void archive_files(FileInfo *head, int days);
+
+// 원클릭 전체 정리 함수
+void run_full_cleanup(FileInfo *head, int days, const char *final_dest);
+
+// --- [Utils] utils.c ---
+void write_log(const char *format, ...);
+int pick_folder_with_gui(char *buffer, size_t size);
+int mkdir_p(const char *path);
+
+// 스레드 관련 함수
+pthread_t start_loading_thread();
+void stop_loading_thread(pthread_t thread_id);
 
 #endif

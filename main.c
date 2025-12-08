@@ -1,119 +1,155 @@
+/* utils.c : 로그, GUI, 폴더 생성 도구 */
+
+#define _DEFAULT_SOURCE 
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include "cleanup.h"
 
-// 1. 멋진 로고 출력 함수
-void print_logo() {
-    printf("\n");
-    printf("==============================================================\n");
-    printf("       📂 SMART CLEANUP AGENT (Team 10) 📂       \n");
-    printf("       System Programming Project - File Organizer    \n");
-    printf("==============================================================\n");
-    printf("\n");
+volatile int is_loading = 0;
+
+// 현재 시간 문자열 반환 함수
+void get_current_time_str(char *buffer, size_t size) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(buffer, size, "%Y-%m-%d %H:%M:%S", t);
 }
 
-// 2. 파일 통계 계산 및 출력 함수 (A파트의 센스!)
-void print_statistics(FileInfo *head) {
-    int count = 0;
-    long total_size = 0;
-    FileInfo *current = head;
-
-    while (current != NULL) {
-        count++;
-        total_size += current->size;
-        current = current->next;
+// 로그 파일에 기록 함수
+void write_log(const char *format, ...) {
+    FILE *fp = fopen("cleanup.log", "a");
+    if (fp == NULL) {
+        perror("로그 파일 열기 실패");
+        return;
     }
 
-    printf("\n[📊 스캔 요약 보고서]\n");
-    printf("------------------------------------------\n");
-    printf("  - 발견된 파일 수 : %d 개\n", count);
-    printf("  - 총 사용 용량   : %.2f MB\n", total_size / (1024.0 * 1024.0));
-    printf("------------------------------------------\n");
+    char time_str[64];
+    get_current_time_str(time_str, sizeof(time_str));
+
+    // [시간] 내용 형식으로 작성
+    fprintf(fp, "[%s] ", time_str);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(fp, format, args);
+    va_end(args);
+
+    fprintf(fp, "\n");
+    fclose(fp);
 }
 
-// 3. 메인 메뉴
-int main(int argc, char *argv[]) {
-    int choice;
-    char target_dir[1024] = "."; // 기본값은 현재 폴더
-    FileInfo *file_list = NULL;
+// Zenity GUI로 폴더 선택 (윈도우 사용자 자동 감지)
+int pick_folder_with_gui(char *buffer, size_t size) {
+    printf(">> 📂 윈도우 다운로드 폴더를 찾는 중...\n");
 
-    print_logo();
-
-    while (1) {
-        printf("\n[ 메인 메뉴 ]\n");
-        printf("1. 🔍 디렉토리 스캔 설정 및 실행\n");
-        printf("2. 🧹 파일 정리 시작 (Action)\n");
-        printf("3. ❌ 프로그램 종료\n");
-        printf("선택 >> ");
-        
-        if (scanf("%d", &choice) != 1) {
-            // 문자가 들어왔을 때 무한루프 방지
-            while(getchar() != '\n');
-            continue;
+    char win_user[256] = {0};
+    
+    // 윈도우 CMD를 호출하여 사용자 이름 추출
+    FILE *name_fp = popen("cmd.exe /c echo %USERNAME% 2>/dev/null", "r");
+    
+    if (name_fp) {
+        if (fgets(win_user, sizeof(win_user), name_fp) != NULL) {
+            // 윈도우는 줄바꿈이 \r\n 이라 둘 다 제거
+            win_user[strcspn(win_user, "\r\n")] = 0; 
         }
-
-        switch (choice) {
-            case 1: // 스캔 실행
-                printf("\n스캔할 디렉토리 경로를 입력하세요 (현재: %s): ", target_dir);
-                printf("\n(입력 없이 엔터를 누르면 현재 폴더 스캔 불가능, 경로를 입력해주세요) >> ");
-                scanf("%s", target_dir);
-
-                // 기존 리스트가 있다면 메모리 해제 후 다시 스캔
-                if (file_list != NULL) free_file_list(file_list);
-                
-                printf("\n>> '%s' 디렉토리를 스캔 중입니다...\n", target_dir);
-                file_list = scan_directory(target_dir);
-
-                if (file_list != NULL) {
-                    print_statistics(file_list);
-                    
-                    // 스캔 직후 목록을 볼지 물어보기
-                    char show_list;
-                    printf("상세 파일 목록을 출력하시겠습니까? (y/n): ");
-                    scanf(" %c", &show_list); // 공백을 넣어 엔터 키 무시
-                    if (show_list == 'y' || show_list == 'Y') {
-                        print_file_list(file_list);
-                    }
-                } else {
-                    printf(">> ⚠️ 파일을 찾지 못했거나 경로가 잘못되었습니다.\n");
-                }
-                break;
-
-            case 2: // 정리 작업 (B파트 연결 구간)
-                if (file_list == NULL) {
-                    printf("\n>> ⚠️ 먼저 [1. 디렉토리 스캔]을 수행해주세요!\n");
-                    break;
-                }
-                
-                printf("\n[ 🧹 정리 옵션 선택 ]\n");
-                printf("1. 오래된 파일 자동 아카이브 (Archive)\n");
-                printf("2. 키워드/종류별 분류 이동 (Move)\n");
-                printf("3. 중복 파일 찾기 (Duplicate)\n");
-                printf("0. 뒤로 가기\n");
-                printf("선택 >> ");
-                
-                int sub_choice;
-                scanf("%d", &sub_choice);
-                
-                if (sub_choice == 1) {
-                    // TODO: B파트가 구현할 archive_files(file_list, "archive.tar"); 호출
-                    printf("\n[System] 아카이빙 기능을 실행합니다... (B파트 구현 예정)\n");
-                } else if (sub_choice == 2) {
-                    // TODO: B파트가 구현할 move_file() 호출 반복문
-                    printf("\n[System] 파일 분류 기능을 실행합니다... (B파트 구현 예정)\n");
-                } else if (sub_choice == 3) {
-                     // TODO: B파트가 구현할 check_duplicate() 호출
-                    printf("\n[System] 중복 파일 검사를 시작합니다... (B파트 구현 예정)\n");
-                }
-                break;
-
-            case 3: // 종료
-                printf("\n시스템을 종료합니다. Good Bye!\n");
-                if (file_list != NULL) free_file_list(file_list);
-                return 0;
-
-            default:
-                printf("\n>> ⚠️ 잘못된 입력입니다. 다시 선택해주세요.\n");
-        }
+        pclose(name_fp);
     }
 
+    // 이름을 못 찾았을 경우 기본값 설정
+    if (strlen(win_user) == 0) {
+        printf(">> ⚠️ 윈도우 사용자 이름을 찾지 못했습니다. 기본 경로로 엽니다.\n");
+        strcpy(win_user, "Public"); // 비상시 공용 폴더로
+    } else {
+        printf(">> ✅ 감지된 윈도우 사용자: %s\n", win_user);
+    }
+
+    char command[1024];
+    // Zenity 실행 명령어 (에러 메시지 숨김)
+    snprintf(command, sizeof(command), 
+             "zenity --file-selection --directory --title='다운로드 폴더 정리' --filename='/mnt/c/Users/%s/Downloads/' 2>/dev/null", 
+             win_user);
+
+    printf(">> 📂 폴더 선택 창을 띄웁니다...\n");
+    FILE *fp = popen(command, "r");
+    
+    if (fp == NULL) {
+        printf(">> ⚠️ GUI 창을 띄울 수 없습니다. (zenity 설치 필요)\n");
+        return 0;
+    }
+
+    if (fgets(buffer, size, fp) != NULL) {
+        buffer[strcspn(buffer, "\n")] = 0;
+        pclose(fp);
+        return 1;
+    }
+
+    pclose(fp);
+    return 0; 
+}
+
+// 재귀적 폴더 생성 (mkdir -p 기능)
+int mkdir_p(const char *path) {
+    char temp[MAX_PATH];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(temp, sizeof(temp), "%s", path);
+    len = strlen(temp);
+
+    if (temp[len - 1] == '/')
+        temp[len - 1] = 0;
+
+    for (p = temp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            if (mkdir(temp, 0755) != 0) {
+                if (errno != EEXIST) return -1;
+            }
+            *p = '/';
+        }
+    }
+    if (mkdir(temp, 0755) != 0) {
+        if (errno != EEXIST) return -1;
+    }
     return 0;
+}
+
+// 로딩 애니메이션을 담당할 작업자 스레드
+void *loading_spinner(void *arg) {
+    // 회전하는 막대기 모양
+    const char spinner[] = {'|', '/', '-', '\\'};
+    int i = 0;
+    
+    // is_loading이 1인 동안 계속 돌아감
+    while (is_loading) {
+        printf("\r[ 작업 진행 중... %c ]   ", spinner[i % 4]);
+        fflush(stdout); // 화면에 즉시 표시
+        usleep(100000);
+        i++;
+    }
+    return NULL;
+}
+
+// 스레드 시작 함수
+pthread_t start_loading_thread() {
+    is_loading = 1;
+    pthread_t thread_id;
+    // 스레드 생성 (성공 시 0 반환)
+    if (pthread_create(&thread_id, NULL, loading_spinner, NULL) != 0) {
+        perror("스레드 생성 실패");
+        is_loading = 0;
+    }
+    return thread_id;
+}
+
+// 스레드 종료 함수
+void stop_loading_thread(pthread_t thread_id) {
+    if (is_loading) {
+        is_loading = 0; // 루프 종료 신호
+        pthread_join(thread_id, NULL); // 스레드가 끝날 때까지 대기
+        printf("\r%60s\r", " ");
+    }
 }
