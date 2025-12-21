@@ -153,8 +153,3 @@ void stop_loading_thread(pthread_t thread_id) {
         printf("\r%60s\r", " ");
     }
 }
-    if (mkdir(temp, 0755) != 0) {
-        if (errno != EEXIST) return -1;
-    }
-    return 0;
-}
