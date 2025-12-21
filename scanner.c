@@ -56,25 +56,9 @@ FileInfo* scan_directory(const char *dir_path) {
         }
 
         // S_ISDIR 매크로: 파일 모드(st_mode)를 확인하여 디렉토리인지 판별 (표준 방법)
-        // S_ISDIR 매크로: 폴더인지 확인
-        if (S_ISDIR(st.st_mode)) {
-            // === [핵심] 재귀 호출: 폴더 안으로 들어감 ===
-            FileInfo *sub_list = scan_directory(full_path);
-
-            // 받아온 리스트 연결 로직
-            if (sub_list != NULL) {
-                if (head == NULL) {
-                    head = sub_list;
-                    current = sub_list;
-                } else {
-                    current->next = sub_list;
-                }
-                // 포인터를 맨 끝으로 이동
-                while (current->next != NULL) {
-                    current = current->next;
-                }
-            }
-        }
+        if (S_ISDIR(st.st_mode)) { // 폴더는 스캔하지 않고 건너뜀 (내부 파일 보호)
+            continue;
+        } 
         // 일반 파일인 경우에 리스트 추가
         FileInfo *new_node = create_node(dir_path, dir->d_name);
             
