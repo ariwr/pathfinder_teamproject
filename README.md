@@ -86,7 +86,7 @@ sudo update-locale LANG=ko_KR.UTF-8
 #### Repository Clone
 
 ```bash
-git clone https://github.com/github_username/pathfinder_teamproject.git
+git clone https://github.com/ariwr/pathfinder_teamproject.git
 ```
 ```bash
 cd pathfinder_teamproject
