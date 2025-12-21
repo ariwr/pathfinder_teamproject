@@ -29,7 +29,7 @@
       <a href="#getting-started">시작하기 (설치 방법)</a>
       <ul>
         <li><a href="#prerequisites">사전 설치 항목</a></li>
-        <li><a href="#installation">빌드 및 실행</a></li>
+        <li><a href="#build-run">빌드 및 실행</a></li>
       </ul>
     </li>
     <li><a href="#usage">사용법</a></li>
@@ -81,7 +81,7 @@ sudo locale-gen ko_KR.UTF-8
 sudo update-locale LANG=ko_KR.UTF-8
 ```
 
-### 2. 빌드 및 실행 (Installation & Run) <a name="installation"></a>
+### 2. 빌드 및 실행 (Build & Run) <a name="build-run"></a>
 
 #### Repository Clone
 
