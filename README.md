@@ -41,13 +41,13 @@
 
 <br>
 
-## 💻 프로젝트 소개 (About The Project)
+## 💻 프로젝트 소개 (About The Project) <a name="about-the-project"></a>
 
 **Smart Cleanup Agent**는 Linux 환경(특히 WSL)에서 빈번하게 발생하는 '다운로드 폴더 난잡화'와 '불필요한 중복 파일로 인한 inode 낭비' 문제를 해결하기 위해 개발된 C 기반 시스템 프로그램입니다.
 
 단순히 쉘 스크립트를 사용하는 것이 아니라, **System Call**을 직접 호출하여 파일의 inode 정보와 메타데이터를 정밀하게 분석합니다. 이를 통해 **바이너리 레벨의 중복 파일 제거**, **접근 시간(atime) 기반 아카이빙**, **확장자 자동 분류**를 수행하여 쾌적한 시스템 환경을 제공합니다.
 
-### 🛠 사용 기술 (Built With)
+### 🛠 사용 기술 및 시스템 콜 (Built With) <a name="built-with"></a>
 
 * **Language:** C (GCC Compiler)
 * **Parallelism:** POSIX Threads (`pthread`) - UI 로딩과 파일 처리를 분리
@@ -66,9 +66,9 @@
 
 <br>
 
-##  시작하기 (Getting Started)
+##  시작하기 (Getting Started) <a name="getting-started"></a>
 
-### 1. 사전 설치 항목 (Prerequisites)
+### 1. 사전 설치 항목 (Prerequisites) <a name="prerequisites"></a>
 이 프로젝트는 **Zenity**를 사용하여 GUI 폴더 선택 창을 제공하며, 한글 파일명 처리를 위해 로케일 설정이 필요합니다. Ubuntu 환경 기준 아래 명령어를 실행해주세요.
 ```bash
 # 1. 빌드 도구 및 필수 패키지 설치
@@ -81,7 +81,7 @@ sudo locale-gen ko_KR.UTF-8
 sudo update-locale LANG=ko_KR.UTF-8
 ```
 
-### 2. 설치 및 실행 (Installation & Run) <a name="installation"></a>
+### 2. 빌드 및 실행 (Installation & Run) <a name="installation"></a>
 
 #### Repository Clone
 
